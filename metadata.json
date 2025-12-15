@@ -1,0 +1,5 @@
+{
+  "name": "Tradutor Técnico OCR",
+  "description": "Ferramenta para extração, limpeza e tradução de documentos técnicos (PDF/Imagens) para Português, preservando código C/C++.",
+  "requestFramePermissions": []
+}

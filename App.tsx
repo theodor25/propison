@@ -4,6 +4,7 @@ import { ProcessingStatus } from './components/ProcessingStatus';
 import { FileData, ProcessingState, ProcessingMode } from './types';
 import { PdfService } from './services/pdfService';
 import { GeminiService } from './services/geminiService';
+import { ImageProcessor } from './services/imageProcessor';
 import { FileText, Trash2, Download, AlertTriangle } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -101,7 +102,8 @@ const App: React.FC = () => {
         updateStatus('processing', 'Extraindo texto do PDF...', 0, totalPages);
         inputs = await PdfService.extractText(pdfDoc);
       } else {
-        updateStatus('processing', 'Renderizando páginas para OCR...', 0, totalPages);
+        // This now calls the method that includes ImageProcessor.processCanvas internally
+        updateStatus('processing', 'Renderizando páginas para OCR (Pré-processamento)...', 0, totalPages);
         inputs = await PdfService.renderPagesToImages(pdfDoc);
       }
 
@@ -129,18 +131,23 @@ const App: React.FC = () => {
 
     try {
       for (let i = 0; i < totalFiles; i++) {
-        updateStatus('processing', `Processando imagem ${i + 1} de ${totalFiles}...`, i + 1, totalFiles);
+        updateStatus('processing', `Pré-processando imagem ${i + 1} de ${totalFiles} (Escala, Contraste, Binarização)...`, i + 1, totalFiles);
         
-        // Convert file to base64
+        // 1. Read File
         const file = files[i].file;
         const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve) => {
+        const rawBase64Promise = new Promise<string>((resolve) => {
           reader.onload = (e) => resolve(e.target?.result as string);
           reader.readAsDataURL(file);
         });
-        const base64 = await base64Promise;
+        const rawBase64 = await rawBase64Promise;
 
-        const result = await gemini.processPage(base64, true);
+        // 2. Preprocess (Binarize, Upscale, etc.)
+        const processedBase64 = await ImageProcessor.processBase64(rawBase64);
+
+        // 3. Send to Gemini
+        updateStatus('processing', `Traduzindo imagem ${i + 1} de ${totalFiles}...`, i + 1, totalFiles);
+        const result = await gemini.processPage(processedBase64, true);
         processedTexts.push(result);
       }
 
